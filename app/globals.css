@@ -99,3 +99,10 @@ input[type="number"] {
     border-radius: 0 !important;
   }
 }
+@media print {
+  .slot-vazio > button {
+    border-color: transparent !important;
+    background: transparent !important;
+    color: transparent !important;
+  }
+}
