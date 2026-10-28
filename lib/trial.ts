@@ -1,5 +1,5 @@
-export const TESTE_FIM = new Date("2026-11-02T00:00:00-03:00");
-export const TESTE_FIM_LABEL = "02/11";
+export const TESTE_FIM = new Date("2026-11-05T00:00:00-03:00");
+export const TESTE_FIM_LABEL = "04/11";
 
 export const testeExpirado = () => Date.now() >= TESTE_FIM.getTime();
 
