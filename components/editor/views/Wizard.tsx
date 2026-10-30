@@ -71,20 +71,53 @@ export function Wizard({ v, previewRef }: { v: Vals; previewRef?: Ref<HTMLElemen
             </div>
             {v.isConsumo && (
               <div style={{ background: "#fff", border: "1px solid #E2E2E5", borderRadius: "13px", padding: "16px 18px", display: "flex", flexDirection: "column", gap: "14px" }}>
-                <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
-                  Consumo do mês (kWh)
-                  <input type="number" value={v.d.kwh ?? ""} onChange={v.onKwh} placeholder="0" style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "20px", fontWeight: "700", outline: "none" }} />
-                </label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
-                  <label style={{ flex: "1", minWidth: "140px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
-                    Valor de referência (R$)
-                    <input type="number" step="0.01" value={v.d.valorRef ?? ""} onChange={v.onValorRef} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none" }} />
+                {!v.multi && (
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                    Consumo do mês (kWh)
+                    <input type="number" value={v.d.kwh ?? ""} onChange={v.onKwh} placeholder="0" style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "20px", fontWeight: "700", outline: "none" }} />
                   </label>
-                  <label style={{ flex: "1", minWidth: "140px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
-                    Desconto do cliente (%)
+                )}
+                {!v.multi && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
+                    <label style={{ flex: "1", minWidth: "140px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                      Valor de referência (R$)
+                      <input type="number" step="0.01" value={v.d.valorRef ?? ""} onChange={v.onValorRef} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none" }} />
+                    </label>
+                    <label style={{ flex: "1", minWidth: "140px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                      Desconto do cliente (%)
+                      <input type="number" value={v.d.desconto ?? ""} onChange={v.onDesconto} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none" }} />
+                    </label>
+                  </div>
+                )}
+                {v.multi && (v.contasForm as any[]).map((c: any, ic: number) => (
+                  <Fragment key={ic}>
+                    <div style={{ border: "1px solid #E2E2E5", borderRadius: "11px", padding: "13px 14px", display: "flex", flexDirection: "column", gap: "11px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: "15px", fontWeight: "700" }}>{c.titulo}</span>
+                        <button className="hv11" onClick={c.onRemover} style={{ cursor: "pointer", background: "none", border: "none", color: "#A33", fontSize: "13.5px", fontWeight: "600" }}>Remover</button>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "14px" }}>
+                        <label style={{ flex: "1", minWidth: "140px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                          Consumo (kWh)
+                          <input type="number" value={c.kwh ?? ""} onChange={c.onKwh} placeholder="0" style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "18px", fontWeight: "700", outline: "none" }} />
+                        </label>
+                        <label style={{ flex: "1", minWidth: "140px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                          Valor de referência (R$)
+                          <input type="number" step="0.01" value={c.valorRef ?? ""} onChange={c.onValorRef} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none" }} />
+                        </label>
+                      </div>
+                    </div>
+                  </Fragment>
+                ))}
+                {v.podeAddConta && (
+                  <button className="hv10" onClick={v.addConta} style={{ cursor: "pointer", background: "#fff", border: "1px dashed #C9C9CE", borderRadius: "11px", padding: "12px", fontSize: "14.5px", fontWeight: "600", color: "#444" }}>+ Adicionar outra conta</button>
+                )}
+                {v.multi && (
+                  <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                    Desconto do cliente (%) — vale para todas as contas
                     <input type="number" value={v.d.desconto ?? ""} onChange={v.onDesconto} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none" }} />
                   </label>
-                </div>
+                )}
                 <div style={{ borderTop: "1px solid #EEE", paddingTop: "13px", display: "flex", flexDirection: "column", gap: "6px", fontSize: "14.5px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", color: "#666" }}>
                     <span>Valor referência{" "}{v.concessionaria}</span>
@@ -257,7 +290,7 @@ export function Wizard({ v, previewRef }: { v: Vals; previewRef?: Ref<HTMLElemen
                   </Fragment>
                 ))}
               </div>
-              {v.p.isConsumo && (
+              {v.p.mostraConsumo && (
                 <div style={{ position: "absolute", top: "324px", left: "247px", width: "299px", height: "142px", border: "2.5px solid #FF8D02", borderRadius: "13px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "9px" }}>
                   <div style={{ fontSize: "15px", fontWeight: "600", letterSpacing: "0.2em" }}>CONSUMO DO MÊS</div>
                   <div style={{ fontSize: "15px", fontWeight: "600", letterSpacing: "0.2em", color: "#FF8D02" }}>ENERGIA GERADA</div>
@@ -272,7 +305,7 @@ export function Wizard({ v, previewRef }: { v: Vals; previewRef?: Ref<HTMLElemen
                 <div style={{ margin: "24px 0 0 49px" }}>
                   {(v.p.rows as any[]).map((row: any, i9: number) => (
                     <Fragment key={i9}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", padding: "9px 0 8px", borderBottom: "1px solid #CFCFCF" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "14px", padding: row.compacta ? "5px 0 4px" : "9px 0 8px", borderBottom: "1px solid #CFCFCF" }}>
                         <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                           <div>
                             <div style={{ fontSize: "17px", fontWeight: "600", lineHeight: "1.15" }}>{row.label}</div>
@@ -282,7 +315,7 @@ export function Wizard({ v, previewRef }: { v: Vals; previewRef?: Ref<HTMLElemen
                             <span style={{ background: "#8CC63F", color: "#fff", fontSize: "12px", fontWeight: "700", borderRadius: "4px", padding: "2px 7px", letterSpacing: "0.03em" }}>{row.pill}</span>
                           )}
                         </div>
-                        <div style={{ fontSize: "16px", fontWeight: "600", letterSpacing: "0.1em" }}>{row.valor}</div>
+                        <div style={{ fontSize: "16px", fontWeight: "600", letterSpacing: "0.1em", color: row.valorCor }}>{row.valor}</div>
                       </div>
                     </Fragment>
                   ))}

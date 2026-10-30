@@ -220,6 +220,17 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
     this.setState(s => ({ draft: Object.assign({}, s.draft, obj, { alterada: Date.now() }) }));
   }
 
+  /** Grava as contas da fatura; kwh e valorRef do rascunho passam a ser a soma delas. */
+  setContas(contas) {
+    if (contas.length < 2) {
+      const u = contas[0] || { kwh: 0, valorRef: 0 };
+      this.patchMany({ contas: [], kwh: u.kwh, valorRef: u.valorRef });
+      return;
+    }
+    const soma = campo => contas.reduce((acc, c) => acc + (Number(c[campo]) || 0), 0);
+    this.patchMany({ contas: contas, kwh: soma('kwh'), valorRef: Math.round(soma('valorRef') * 100) / 100 });
+  }
+
   medir = () => {
     const el = this._previewEl;
     const w = el ? el.clientWidth : 0;
@@ -514,7 +525,9 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
           totalStr: brl(t),
           refLabel: refLabel(f.mes),
           venc: dataBr(f.vencimento),
-          consumoLabel: f.tipo === 'fixa' ? 'Valor fixo contratado' : intBr(f.kwh) + ' kWh · −' + f.desconto + '%',
+          consumoLabel: f.tipo === 'fixa'
+            ? 'Valor fixo contratado'
+            : intBr(f.kwh) + ' kWh · ' + ((f.contas || []).length >= 2 ? f.contas.length + ' contas · ' : '') + '−' + f.desconto + '%',
           criada: dataCurta(f.criada),
           alterada: dataCurta(f.alterada),
           onAbrir: () => this.setState({ draft: Object.assign({}, f), view: 'wizard', step: 1 }),
@@ -603,16 +616,38 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
 
     // --- página da fatura ---
     const isConsumo = d.tipo === 'consumo';
+    const contasDe = d.contas || [];
+    const multi = isConsumo && contasDe.length >= 2;
+    const compacta = contasDe.length >= 4;
+    const concess = d.concessionaria || 'Neoenergia';
+    const pillDesc = '-' + (Number(d.desconto) || 0) + '%';
     const linhas = String(d.endereco || '').split('\n').filter(l => l.trim());
-    const rows = isConsumo
-      ? [
-          { label: 'Consumo ' + intBr(d.kwh) + ' kWh', sub: 'Valor referência ' + (d.concessionaria || 'Neoenergia'), valor: brl(calc.valorRef), temPill: false, pill: '' },
-          { label: 'Desconto cliente', sub: '', valor: brl(calc.total), temPill: true, pill: '-' + (Number(d.desconto) || 0) + '%' }
-        ]
-      : [
-          { label: 'Contratado', sub: '', valor: brl(d.contratado), temPill: false, pill: '' },
-          { label: 'Taxa mínima', sub: '', valor: brl(d.taxaMinima), temPill: false, pill: '' }
-        ];
+    const VERDE = '#3E8E3E';
+    let rows;
+    if (multi) {
+      rows = [];
+      contasDe.forEach((c, i) => {
+        const ref = refDe({ valorRef: c.valorRef, kwh: c.kwh, tarifa: d.tarifa });
+        const final = ref * (1 - (Number(d.desconto) || 0) / 100);
+        const label = 'Conta ' + (i + 1) + ' - Consumo ' + intBr(c.kwh) + ' kWh';
+        if (compacta) {
+          rows.push({ label: label, sub: 'Valor referência ' + concess + ' ' + brl(ref), valor: brl(final), valorCor: VERDE, temPill: true, pill: pillDesc, compacta: true });
+        } else {
+          rows.push({ label: label, sub: 'Valor referência ' + concess, valor: brl(ref), valorCor: '#151515', temPill: false, pill: '', compacta: false });
+          rows.push({ label: 'Desconto cliente', sub: '', valor: brl(final), valorCor: VERDE, temPill: true, pill: pillDesc, compacta: false });
+        }
+      });
+    } else if (isConsumo) {
+      rows = [
+        { label: 'Consumo ' + intBr(d.kwh) + ' kWh', sub: 'Valor referência ' + concess, valor: brl(calc.valorRef), valorCor: '#151515', temPill: false, pill: '' },
+        { label: 'Desconto cliente', sub: '', valor: brl(calc.total), valorCor: '#151515', temPill: true, pill: pillDesc }
+      ];
+    } else {
+      rows = [
+        { label: 'Contratado', sub: '', valor: brl(d.contratado), valorCor: '#151515', temPill: false, pill: '' },
+        { label: 'Taxa mínima', sub: '', valor: brl(d.taxaMinima), valorCor: '#151515', temPill: false, pill: '' }
+      ];
+    }
 
     const p = {
       ref: refLabel(d.mes),
@@ -623,11 +658,12 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
       docLinha: mascaraDoc(d.doc),
       linhas: linhas,
       isConsumo: isConsumo,
+      mostraConsumo: isConsumo && !multi,
       kwh: intBr(d.kwh),
-      detTop: isConsumo ? '548px' : '404px',
+      detTop: multi ? '340px' : isConsumo ? '548px' : '404px',
       rows: rows,
       notaTotal: isConsumo ? '' : '(desconto especial para o cliente)',
-      ecoTop: isConsumo ? '739px' : '645px',
+      ecoTop: multi ? '728px' : isConsumo ? '739px' : '645px',
       ecoLeft: isConsumo ? '33px' : '177px',
       ecoWidth: isConsumo ? '728px' : '440px',
       economia: this.msgEconomia(d),
@@ -849,6 +885,28 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         this.patchMany({ kwh: kwh, valorRef: Math.round((Number(kwh) || 0) * (Number(d.tarifa) || 1.37) * 100) / 100 });
       },
       onValorRef: e => this.patch('valorRef', e.target.value),
+      multi: multi,
+      podeAddConta: contasDe.length < 6,
+      contasForm: contasDe.map((c, i) => ({
+        titulo: 'Conta ' + (i + 1),
+        kwh: c.kwh,
+        valorRef: c.valorRef,
+        onKwh: e => {
+          const kwh = e.target.value;
+          this.setContas(contasDe.map((x, j) => (j === i
+            ? { kwh: kwh, valorRef: Math.round((Number(kwh) || 0) * (Number(d.tarifa) || 1.37) * 100) / 100 }
+            : x)));
+        },
+        onValorRef: e => {
+          const valorRef = e.target.value;
+          this.setContas(contasDe.map((x, j) => (j === i ? Object.assign({}, x, { valorRef: valorRef }) : x)));
+        },
+        onRemover: () => this.setContas(contasDe.filter((x, j) => j !== i))
+      })),
+      addConta: () => {
+        const base = contasDe.length >= 2 ? contasDe : [{ kwh: d.kwh, valorRef: d.valorRef }];
+        this.setContas(base.concat([{ kwh: 0, valorRef: 0 }]));
+      },
       onTarifa: e => this.patch('tarifa', e.target.value),
       onDesconto: e => this.patch('desconto', e.target.value),
       onContratado: e => this.patch('contratado', e.target.value),
@@ -937,9 +995,9 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         { k: 'Documento', v: mascaraDoc(d.doc) || '—' },
         { k: 'Referência', v: refLabel(d.mes) },
         { k: 'Vencimento', v: dataBr(d.vencimento) },
-        { k: 'Tipo', v: isConsumo ? 'Por consumo' : 'Valor fixo' },
-        { k: 'Total a pagar', v: brl(calc.total) }
-      ],
+        { k: 'Tipo', v: isConsumo ? 'Por consumo' : 'Valor fixo' }
+      ].concat(multi ? [{ k: 'Contas', v: contasDe.length + ' contas' }] : [])
+        .concat([{ k: 'Total a pagar', v: brl(calc.total) }]),
       economiaMsg: this.msgEconomia(d),
       baixarPdf: () => { this.salvar(d); this.exportarPdf(this.nomeFatura(d)); },
       salvarFatura: () => { this.salvar(d); this.setState({ view: 'lista' }); this.flash('Fatura salva.'); },

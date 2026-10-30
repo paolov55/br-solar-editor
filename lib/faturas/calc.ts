@@ -28,6 +28,12 @@ export type ContaPagamento = {
   tipoConta: string;
 };
 
+/** Conta (unidade consumidora) de um cliente com várias contas na mesma fatura. */
+export type ContaConsumo = {
+  kwh: number | string;
+  valorRef: number | string;
+};
+
 export type Fatura = {
   id: string; // "" enquanto não salva
   clienteId: string;
@@ -41,6 +47,7 @@ export type Fatura = {
   kwh: number;
   tarifa: number;
   valorRef: number | null; // null → kwh × tarifa
+  contas?: ContaConsumo[]; // 2+ contas → kwh e valorRef acima são a soma delas
   desconto: number;
   concessionaria: string;
   contratado: number;

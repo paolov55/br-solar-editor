@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "git:sync": "git add . && git commit -m \"Atualização automática\" && git push"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
