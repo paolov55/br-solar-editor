@@ -111,3 +111,12 @@ input[type="number"] {
     color: transparent !important;
   }
 }
+/* Mesmas regras de conteúdo da impressão, para o PDF gerado por lib/pdf/exportar.ts */
+.exportando-pdf .no-print {
+  display: none !important;
+}
+.exportando-pdf .slot-vazio > button {
+  border-color: transparent !important;
+  background: transparent !important;
+  color: transparent !important;
+}

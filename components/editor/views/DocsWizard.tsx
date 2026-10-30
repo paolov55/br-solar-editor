@@ -148,7 +148,7 @@ export function DocsWizard({ v }: { v: Vals }) {
               ))}
             </div>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <button className="hv3" onClick={v.baixarDocs} style={{ cursor: "pointer", background: "#FF8D02", color: "#151515", border: "none", borderRadius: "10px", padding: "14px 22px", fontSize: "16px", fontWeight: "700" }}>Baixar PDF</button>
+              <button className="hv3" onClick={v.baixarDocs} disabled={v.pdfBotao !== "Baixar PDF"}style={{ cursor: "pointer", background: "#FF8D02", color: "#151515", border: "none", borderRadius: "10px", padding: "14px 22px", fontSize: "16px", fontWeight: "700" }}>{v.pdfBotao}</button>
               <button className="hv8" onClick={v.salvarDocs} style={{ cursor: "pointer", background: "#fff", border: "1px solid #DDD", borderRadius: "10px", padding: "14px 22px", fontSize: "16px", fontWeight: "600" }}>Salvar e voltar</button>
             </div>
           </div>

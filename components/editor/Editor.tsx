@@ -15,6 +15,7 @@ import { BR_SOLAR_ASSIN, CONTRATO_PAGINAS, OUTORGADOS, TEXTOS_TERMO } from "@/li
 import {
   FIN_PADRAO, GARANTIAS_PADRAO, ITENS_PADRAO, ITENS_SERVICO_PADRAO, REND_PADRAO, TIPOS_ITEM,
 } from "@/lib/propostas/padroes";
+import { baixarPdf, nomeArquivoPdf } from "@/lib/pdf/exportar";
 import "./hover.css";
 import { Docs } from "./views/Docs";
 import { DocsWizard } from "./views/DocsWizard";
@@ -134,15 +135,27 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
     novoGerente: '',
     garantiasPadrao: GARANTIAS_PADRAO,
     rendPadrao: REND_PADRAO,
-    imprimindo: false
+    imprimindo: false,
+    gerandoPdf: false
   };
 
-  imprimirProposta() {
-    this.setState({ imprimindo: true });
-    setTimeout(() => {
-      window.print();
-      this.setState({ imprimindo: false });
-    }, 300);
+  // Gera e baixa o PDF. `imprimindo` faz a proposta renderizar todas as seções antes da captura.
+  exportarPdf(nome) {
+    if (this.state.gerandoPdf) return;
+    this.setState({ imprimindo: true, gerandoPdf: true }, () => {
+      requestAnimationFrame(() => requestAnimationFrame(async () => {
+        this.flash('Gerando PDF…');
+        try {
+          await baixarPdf(nome);
+          this.flash('PDF gerado.');
+        } catch (e) {
+          console.error(e);
+          this.flash('Não foi possível gerar o PDF.');
+        } finally {
+          this.setState({ imprimindo: false, gerandoPdf: false });
+        }
+      }));
+    });
   }
 
   patchProp(campo, valor) {
@@ -344,8 +357,8 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
     return 'Parabéns! Sua economia em relação ao valor da ' + (d.concessionaria || 'Neoenergia') + ' foi de mais de ' + brl(eco) + '.';
   }
 
-  imprimir() {
-    setTimeout(() => window.print(), 120);
+  nomeFatura(d) {
+    return nomeArquivoPdf('Fatura', d.nome, refLabel(d.mes));
   }
 
   novoPacote() {
@@ -528,12 +541,10 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
                   vencimento: iso(new Date(dt.getFullYear(), dt.getMonth() + 1, Number(String(f.vencimento).slice(-2)))),
                   alterada: Date.now()
                 });
-                this.setState({ draft: atual, view: 'wizard', step: 4, modal: null });
-                this.imprimir();
+                this.setState({ draft: atual, view: 'wizard', step: 4, modal: null }, () => this.exportarPdf(this.nomeFatura(atual)));
               },
               nao: () => {
-                this.setState({ draft: Object.assign({}, f), view: 'wizard', step: 4, modal: null });
-                this.imprimir();
+                this.setState({ draft: Object.assign({}, f), view: 'wizard', step: 4, modal: null }, () => this.exportarPdf(this.nomeFatura(f)));
               }
             }
           })
@@ -663,8 +674,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
           this.flash('Pacote duplicado — troque o cliente.');
         },
         onPdf: () => {
-          this.setState({ docDraft: Object.assign({}, pk), view: 'docsWizard', docStep: 'revisar' });
-          this.imprimir();
+          this.setState({ docDraft: Object.assign({}, pk), view: 'docsWizard', docStep: 'revisar' }, () => this.exportarPdf(nomeArquivoPdf('Documentos', pk.nome)));
         }
       }));
 
@@ -737,8 +747,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
           this.flash('Proposta duplicada.');
         },
         onPdf: () => {
-          this.setState({ propDraft: Object.assign({}, x), view: 'propsWizard', propStep: 'revisar' });
-          this.imprimirProposta();
+          this.setState({ propDraft: Object.assign({}, x), view: 'propsWizard', propStep: 'revisar' }, () => this.exportarPdf(nomeArquivoPdf('Proposta', x.cliente)));
         }
       }));
 
@@ -932,7 +941,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         { k: 'Total a pagar', v: brl(calc.total) }
       ],
       economiaMsg: this.msgEconomia(d),
-      baixarPdf: () => { this.salvar(d); this.imprimir(); },
+      baixarPdf: () => { this.salvar(d); this.exportarPdf(this.nomeFatura(d)); },
       salvarFatura: () => { this.salvar(d); this.setState({ view: 'lista' }); this.flash('Fatura salva.'); },
 
       p: p,
@@ -1025,7 +1034,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         { k: 'Documentos', v: docsGerados0.map(x => x.titulo).join(', ') || 'Nenhum' },
         { k: 'Data', v: dataExtenso(hoje()).replace('Recife, ', '') }
       ],
-      baixarDocs: () => { this.salvarPacote(dd); this.imprimir(); },
+      baixarDocs: () => { this.salvarPacote(dd); this.exportarPdf(nomeArquivoPdf('Documentos', dd.nome)); },
       salvarDocs: () => { this.salvarPacote(dd); this.setState({ view: 'docs' }); this.flash('Pacote salvo.'); },
 
       isProps: s.view === 'props',
@@ -1256,7 +1265,8 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         { k: 'Validade', v: pp.validadeDias + ' dias corridos' },
         { k: 'Data', v: dataCurtaBr }
       ],
-      baixarProposta: () => { this.salvarProposta(pp); this.imprimirProposta(); },
+      baixarProposta: () => { this.salvarProposta(pp); this.exportarPdf(nomeArquivoPdf('Proposta', pp.cliente)); },
+      pdfBotao: s.gerandoPdf ? 'Gerando…' : 'Baixar PDF',
       salvarPropostaBtn: () => { this.salvarProposta(pp); this.setState({ view: 'props' }); this.flash('Proposta salva.'); },
 
       temToast: !!s.toast,
