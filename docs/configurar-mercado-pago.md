@@ -1,8 +1,10 @@
 # Configurar o Mercado Pago (passo a passo)
 
-A plataforma usa o **Checkout Pro**: ao clicar em "Pagar", o usuário é levado para uma página do próprio
-Mercado Pago, paga por Pix, cartão ou boleto e volta para a plataforma. O Mercado Pago avisa a plataforma
-do pagamento por um **webhook**, e o acesso é liberado automaticamente.
+A plataforma usa o **Checkout Pro com a API de Pedidos** (`/v1/orders`, a recomendada pelo Mercado Pago;
+a API de Preferências é considerada legado): ao clicar em "Pagar", a plataforma cria um pedido e leva o
+usuário para uma página do próprio Mercado Pago, onde ele paga por Pix, cartão ou boleto e volta. O Mercado
+Pago avisa a plataforma por um **webhook**, e o acesso é liberado automaticamente. Mesmo sem o aviso, a
+plataforma consulta o pedido sozinha ao abrir `/pagamentos` (conciliação).
 
 Você vai precisar de 3 coisas do Mercado Pago: o **Access Token** (`MP_ACCESS_TOKEN`), a
 **assinatura secreta do webhook** (`MP_WEBHOOK_SECRET`) e a **URL do webhook**.
@@ -22,8 +24,12 @@ No terminal: `openssl rand -base64 32` e cole o resultado em `AUTH_SECRET`.
    > A migration usa a função `set_updated_at()` criada em `0001_init.sql`. Se o `0001` nunca foi aplicado
    > nesse projeto, aplique-o antes (ou rode só o trecho `create function ... set_updated_at` dele).
 
-### 1.3 Senhas
+### 1.3 Senhas e e-mail
 Preencha `ADMIN_SENHA` e `USUARIO_SENHA` com senhas fortes. Conta com senha vazia fica desativada.
+
+`USUARIO_EMAIL` é o e-mail do assinante e vai ao Mercado Pago como `payer.email` (exigido na avaliação de
+qualidade). **Em teste, use o e-mail do comprador de teste** (`test_user_...@testuser.com`): com o e-mail de
+uma conta real, o checkout pode voltar a acusar "uma das partes é de teste". Em produção, use o e-mail real.
 
 ---
 
@@ -75,12 +81,31 @@ de voltar (comum no Pix e no boleto).
 2. Faça o deploy (ou *Redeploy*, se já existia).
 3. No Mercado Pago → sua aplicação → **Webhooks → Configurar notificações**:
    - **URL de teste:** `https://SEU-DOMINIO/api/mercadopago/webhook`
-   - **Eventos:** marque **Pagamentos**.
+   - **Eventos:** marque **Pedidos (Order)** e também **Pagamentos**. (O nome exato do evento de pedidos
+     pode variar no painel; marque o que fizer referência a *Orders*.)
    - Salve e copie a **Assinatura secreta** para `MP_WEBHOOK_SECRET` (na Vercel) e faça *Redeploy*.
 4. Clique em **Simular notificação**. Resposta esperada: `200`. Se vier `401`, a assinatura secreta cadastrada
    na Vercel está diferente da exibida no painel.
    > A simulação envia um pagamento fictício, então a plataforma só responde 200 sem alterar nenhuma cobrança.
 5. Faça um pagamento de teste completo e confira que a cobrança vira **Pago** mesmo sem voltar ao site.
+
+---
+
+## Parte 3.1 — Avaliação de qualidade da integração
+
+No painel (sua aplicação → **Qualidade da integração / Medir qualidade**), o Mercado Pago confere itens
+obrigatórios. Como cada um é atendido aqui:
+
+| Item | Onde está |
+|---|---|
+| **Descrição na fatura do cartão** (`config.statement_descriptor`) | `lib/mercadopago.ts`, `criarPedido`: `"BR SOLAR"` |
+| **Back URLs** (`config.online.success_url`, `failure_url`, `pending_url`) | `criarPedido`: `APP_URL/pagamentos`. **Precisam ser https**, então só passam com `APP_URL` de produção, não com `localhost` |
+| **E-mail do comprador** (`payer.email`) | `criarPedido`, vindo de `USUARIO_EMAIL` (se vazio, o campo não é enviado) |
+| **Notificações** (webhook) | Parte 3 acima: URL https cadastrada, evento de pedidos marcado e `MP_WEBHOOK_SECRET` configurado |
+
+Faça a avaliação **depois do deploy**, com `APP_URL` https, `USUARIO_EMAIL` preenchido, o webhook cadastrado e
+pelo menos um pagamento de teste feito com esse ambiente. Pagamentos feitos antes dessas mudanças ou a partir
+de `localhost` não contam.
 
 ---
 

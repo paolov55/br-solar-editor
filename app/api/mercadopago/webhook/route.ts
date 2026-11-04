@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { buscarPagamento, registrarPagamento, validarAssinatura } from "@/lib/mercadopago";
+import { buscarPagamento, conciliarPedido, registrarPagamento, validarAssinatura } from "@/lib/mercadopago";
 
 // Notificações do Mercado Pago. Não passa pelo proxy; a autenticação é a assinatura (x-signature).
 export async function POST(request: NextRequest) {
@@ -17,12 +17,19 @@ export async function POST(request: NextRequest) {
   }
 
   const tipo = url.searchParams.get("type") ?? corpo.type ?? "";
-  if (tipo !== "payment" || !dataId) return NextResponse.json({ ok: true, ignorado: true });
+  if (!dataId) return NextResponse.json({ ok: true, ignorado: true });
 
   try {
-    // nunca confia no corpo da notificação: consulta o pagamento direto na API do Mercado Pago
-    const pagamento = await buscarPagamento(dataId);
-    if (pagamento) await registrarPagamento(pagamento);
+    // nunca confia no corpo da notificação: consulta direto na API do Mercado Pago
+    if (/^ord/i.test(dataId)) {
+      // notificação de pedido (o id pode chegar em minúsculas; na API ele é maiúsculo)
+      await conciliarPedido(dataId.toUpperCase());
+    } else if (tipo === "payment") {
+      const pagamento = await buscarPagamento(dataId);
+      if (pagamento) await registrarPagamento(pagamento);
+    } else {
+      return NextResponse.json({ ok: true, ignorado: true });
+    }
   } catch (e) {
     console.error("webhook mercadopago:", e);
     // 500 faz o Mercado Pago tentar de novo mais tarde

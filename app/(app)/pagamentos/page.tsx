@@ -47,9 +47,10 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
     const pagamento = await buscarPagamento(paymentId);
     if (pagamento) {
       const registrado = await registrarPagamento(pagamento);
-      if (registrado || pagamento.status === "approved") confirmacao = "ok";
+      // "approved" sem baixa ainda: a conciliação abaixo (pelo pedido) decide se mostra a confirmação
+      if (registrado) confirmacao = "ok";
       else if (pagamento.status === "pending" || pagamento.status === "in_process") confirmacao = "pendente";
-      else confirmacao = "recusado";
+      else if (pagamento.status !== "approved") confirmacao = "recusado";
     }
   }
 

@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { db } from "@/lib/supabase/admin";
 import { refLabel } from "@/lib/format";
 import type { Cobranca } from "@/lib/cobranca/status";
@@ -24,39 +24,50 @@ export type PagamentoMP = {
   date_approved: string | null;
 };
 
-/** Cria a preferência do Checkout Pro e devolve o link de pagamento. */
-export async function criarPreferencia(cobranca: Cobranca) {
+/**
+ * Cria o pedido (API de Pedidos, Checkout Pro) e devolve o link de pagamento.
+ * O id do pedido fica na coluna `mp_preference_id` (nome herdado da API antiga de preferências,
+ * mantido para não exigir nova migration) e é o que a conciliação consulta depois.
+ */
+export async function criarPedido(cobranca: Cobranca) {
   const base = appUrl();
-  const https = base.startsWith("https://");
-  const corpo: Record<string, unknown> = {
-    items: [
-      {
-        id: cobranca.id,
-        title: `Mensalidade BR Solar Editor – ${refLabel(cobranca.referencia)}`,
-        quantity: 1,
-        unit_price: cobranca.valor,
-        currency_id: "BRL",
-      },
-    ],
+  const titulo = `Mensalidade BR Solar Editor – ${refLabel(cobranca.referencia)}`;
+  const valor = cobranca.valor.toFixed(2);
+  // E-mail do pagador (campo exigido na avaliação de qualidade do Mercado Pago).
+  const email = process.env.USUARIO_EMAIL?.trim();
+
+  const corpo = {
+    type: "online",
+    processing_mode: "manual",
+    total_amount: valor,
     external_reference: cobranca.id,
-    statement_descriptor: "BR SOLAR",
-    back_urls: { success: `${base}/pagamentos`, pending: `${base}/pagamentos`, failure: `${base}/pagamentos` },
+    description: titulo,
+    items: [{ title: titulo, unit_price: valor, quantity: 1 }],
+    ...(email ? { payer: { email } } : {}),
+    config: {
+      statement_descriptor: "BR SOLAR", // texto na fatura do cartão
+      online: {
+        success_url: `${base}/pagamentos`,
+        failure_url: `${base}/pagamentos`,
+        pending_url: `${base}/pagamentos`,
+        auto_return: "approved",
+      },
+    },
   };
-  // O Mercado Pago só aceita notificação/retorno automático em URL pública https.
-  if (https) {
-    corpo.notification_url = `${base}/api/mercadopago/webhook`;
-    corpo.auto_return = "approved";
-  }
-  const r = await fetch(`${API}/checkout/preferences`, {
+  const r = await fetch(`${API}/v1/orders`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token()}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${token()}`,
+      "Content-Type": "application/json",
+      "X-Idempotency-Key": randomUUID(),
+    },
     body: JSON.stringify(corpo),
     cache: "no-store",
   });
   if (!r.ok) throw new Error(`Mercado Pago (${r.status}): ${await r.text()}`);
-  const pref = (await r.json()) as { id: string; init_point: string };
-  await db().from("cobrancas").update({ mp_preference_id: pref.id }).eq("id", cobranca.id);
-  return pref.init_point;
+  const pedido = (await r.json()) as { id: string; checkout_url: string };
+  await db().from("cobrancas").update({ mp_preference_id: pedido.id }).eq("id", cobranca.id);
+  return pedido.checkout_url;
 }
 
 export async function buscarPagamento(id: string | number): Promise<PagamentoMP | null> {
@@ -70,25 +81,76 @@ export async function buscarPagamento(id: string | number): Promise<PagamentoMP 
   return (await r.json()) as PagamentoMP;
 }
 
+type PedidoMP = {
+  id: string;
+  status: string;
+  external_reference: string | null;
+  total_amount?: string;
+  transactions?: {
+    payments?: {
+      id: string | number;
+      status?: string;
+      amount?: string | number;
+      paid_amount?: string | number;
+      payment_method?: { id?: string; type?: string };
+    }[];
+  };
+};
+
+export async function buscarPedido(id: string): Promise<PedidoMP | null> {
+  const r = await fetch(`${API}/v1/orders/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${token()}` },
+    cache: "no-store",
+    signal: new AbortController().signal, // sem memoização do Next na renderização
+  });
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`Mercado Pago (${r.status}): ${await r.text()}`);
+  return (await r.json()) as PedidoMP;
+}
+
+// status de pagamento dentro de um pedido que significam "aprovado"
+const PAGO_NO_PEDIDO = new Set(["processed", "approved", "accredited"]);
+
+/** Consulta o pedido no Mercado Pago e, se houver pagamento aprovado, dá baixa na cobrança. */
+export async function conciliarPedido(pedidoId: string): Promise<boolean> {
+  const pedido = await buscarPedido(pedidoId);
+  if (!pedido?.external_reference) return false;
+
+  for (const t of pedido.transactions?.payments ?? []) {
+    // Preferimos os dados do pagamento em si (data, forma, valor); se a consulta falhar,
+    // usamos o que veio dentro do pedido.
+    let pagamento = await buscarPagamento(t.id).catch(() => null);
+    if (!pagamento) {
+      if (!PAGO_NO_PEDIDO.has(t.status ?? "")) continue;
+      pagamento = {
+        id: Number(t.id),
+        status: "approved",
+        external_reference: pedido.external_reference,
+        transaction_amount: Number(t.paid_amount ?? t.amount ?? 0),
+        payment_type_id: t.payment_method?.type ?? null,
+        date_approved: null,
+      };
+    }
+    // pagamentos criados por pedido podem não repetir o external_reference
+    pagamento.external_reference ??= pedido.external_reference;
+    if (await registrarPagamento(pagamento)) return true;
+  }
+  return false;
+}
+
 /**
- * Conciliação: para cada cobrança pendente cujo checkout já foi aberto, pergunta ao Mercado Pago
- * se existe pagamento aprovado com aquele external_reference. Garante a baixa mesmo sem webhook
- * e sem o redirecionamento de volta (localhost, aba fechada, Pix pago depois). Não lança erro:
- * se o Mercado Pago estiver fora do ar, a página simplesmente segue com o que já está no banco.
+ * Conciliação: para cada cobrança pendente cujo checkout já foi aberto, consulta o pedido no
+ * Mercado Pago. Garante a baixa mesmo sem webhook e sem o redirecionamento de volta
+ * (localhost, aba fechada, Pix pago depois). Não lança erro: se o Mercado Pago estiver fora do
+ * ar, a página simplesmente segue com o que já está no banco.
  */
 export async function conciliarPendentes(cobrancas: Cobranca[]): Promise<boolean> {
   let mudou = false;
   for (const c of cobrancas) {
-    if (c.status !== "pendente" || !c.mp_preference_id) continue;
+    // só pedidos novos (ORD...); ids antigos de preferência são ignorados
+    if (c.status !== "pendente" || !c.mp_preference_id?.startsWith("ORD")) continue;
     try {
-      const r = await fetch(
-        `${API}/v1/payments/search?external_reference=${encodeURIComponent(c.id)}&sort=date_created&criteria=desc&limit=10`,
-        { headers: { Authorization: `Bearer ${token()}` }, cache: "no-store", signal: new AbortController().signal },
-      );
-      if (!r.ok) continue;
-      const { results } = (await r.json()) as { results?: PagamentoMP[] };
-      const aprovado = results?.find((p) => p.status === "approved");
-      if (aprovado && (await registrarPagamento(aprovado))) mudou = true;
+      if (await conciliarPedido(c.mp_preference_id)) mudou = true;
     } catch (e) {
       console.error("conciliação mercadopago:", e);
     }

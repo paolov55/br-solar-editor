@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { exigirSessao } from "@/lib/auth/sessao";
 import { garantirCobrancas, obterConfig } from "@/lib/cobranca/status";
-import { conciliarPendentes, criarPreferencia } from "@/lib/mercadopago";
+import { conciliarPendentes, criarPedido } from "@/lib/mercadopago";
 
 /** Gera o checkout do Mercado Pago para uma cobrança pendente e redireciona o usuário. */
 export async function pagar(formData: FormData) {
@@ -17,6 +17,6 @@ export async function pagar(formData: FormData) {
   // Se ela já foi paga num checkout anterior, só registra e volta (evita pagar duas vezes).
   if (await conciliarPendentes([cobranca])) redirect("/pagamentos");
 
-  const link = await criarPreferencia(cobranca);
+  const link = await criarPedido(cobranca);
   redirect(link);
 }
