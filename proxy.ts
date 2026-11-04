@@ -1,58 +1,37 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { LOGIN_ATIVO, testeExpirado } from "@/lib/trial";
+import { COOKIE_SESSAO, verificar } from "@/lib/auth/token";
+import { situacao, termosAceitos } from "@/lib/cobranca/status";
 
+// Portão de toda navegação: sessão → papel → termos de uso → mensalidade em dia.
+// (Server actions e páginas também revalidam a sessão; aqui é a primeira barreira.)
 export async function proxy(request: NextRequest) {
-  const expirado = request.nextUrl.pathname.startsWith("/expirado");
-  if (testeExpirado() !== expirado) {
-    const url = request.nextUrl.clone();
-    url.pathname = expirado ? "/" : "/expirado";
-    return NextResponse.redirect(url);
-  }
-  if (expirado) return NextResponse.next({ request });
+  const { pathname } = request.nextUrl;
+  const ir = (destino: string) => NextResponse.redirect(new URL(destino, request.url));
+  const em = (prefixo: string) => pathname === prefixo || pathname.startsWith(prefixo + "/");
 
-  if (!LOGIN_ATIVO) {
-    if (!request.nextUrl.pathname.startsWith("/login")) return NextResponse.next({ request });
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
+  const sessao = await verificar(request.cookies.get(COOKIE_SESSAO)?.value);
 
-  let response = NextResponse.next({ request });
+  if (!sessao) return em("/login") ? NextResponse.next() : ir("/login");
+  if (em("/login")) return ir("/");
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (list) => {
-          list.forEach(({ name, value }) => request.cookies.set(name, value));
-          response = NextResponse.next({ request });
-          list.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-        },
-      },
-    },
-  );
+  // O admin nunca é bloqueado e não precisa aceitar termos.
+  if (sessao.papel === "admin") return NextResponse.next();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  if (em("/admin")) return ir("/");
 
-  const noLogin = request.nextUrl.pathname.startsWith("/login");
-  if (!user && !noLogin) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-  if (user && noLogin) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-  return response;
+  const [aceitou, sit] = await Promise.all([termosAceitos(sessao.login), situacao()]);
+
+  if (!aceitou) return em("/termos") ? NextResponse.next() : ir("/termos");
+  if (em("/termos")) return ir("/");
+
+  if (sit.estado === "vencida" && !em("/pagamentos")) return ir("/pagamentos?bloqueado=1");
+
+  return NextResponse.next();
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|assets/|.*\\.(?:png|jpg|svg|ico)$).*)"],
+  matcher: [
+    // fora do portão: arquivos estáticos e o webhook do Mercado Pago (autenticado por assinatura)
+    "/((?!_next/static|_next/image|favicon.ico|assets/|api/mercadopago/webhook|.*\\.(?:png|jpg|svg|ico)$).*)",
+  ],
 };
