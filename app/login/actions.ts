@@ -8,6 +8,7 @@ export type EstadoLogin = { erro?: string };
 export async function entrar(_anterior: EstadoLogin, formData: FormData): Promise<EstadoLogin> {
   const login = String(formData.get("login") ?? "").trim();
   const senha = String(formData.get("senha") ?? "");
+  const lembrar = formData.get("lembrar") === "on";
 
   const papel = verificarCredenciais(login, senha);
   if (!papel) {
@@ -16,6 +17,6 @@ export async function entrar(_anterior: EstadoLogin, formData: FormData): Promis
     return { erro: "Usuário ou senha inválidos." };
   }
 
-  await criarSessao({ login: login.toLowerCase(), papel });
+  await criarSessao({ login: login.toLowerCase(), papel, lembrar });
   redirect("/");
 }

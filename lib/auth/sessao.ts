@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { COOKIE_SESSAO, SESSAO_DIAS, assinar, verificar, type Papel, type Sessao } from "./token";
+import { COOKIE_SESSAO, assinar, opcoesCookie, verificar, type Papel, type Sessao } from "./token";
 
 export type { Papel, Sessao };
 
@@ -32,13 +32,7 @@ export function verificarCredenciais(login: string, senha: string): Papel | null
 
 export async function criarSessao(sessao: Sessao) {
   const token = await assinar(sessao);
-  (await cookies()).set(COOKIE_SESSAO, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSAO_DIAS * 24 * 60 * 60,
-  });
+  (await cookies()).set(COOKIE_SESSAO, token, opcoesCookie(sessao.lembrar));
 }
 
 export async function encerrarSessao() {
@@ -46,7 +40,8 @@ export async function encerrarSessao() {
 }
 
 export async function lerSessao(): Promise<Sessao | null> {
-  return verificar((await cookies()).get(COOKIE_SESSAO)?.value);
+  const lida = await verificar((await cookies()).get(COOKIE_SESSAO)?.value);
+  return lida && { login: lida.login, papel: lida.papel, lembrar: lida.lembrar };
 }
 
 /** Camada de acesso: use em páginas e server actions. Redireciona se não houver sessão/papel. */

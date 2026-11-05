@@ -73,3 +73,33 @@ export const CONTRATO_PAGINAS = [
     ['pc', 'Foro. O foro da Comarca do Recife, no Estado de Pernambuco, será o único competente para dirimir quaisquer ações ou questões que possam advir da locação, com renúncia expressa a qualquer outro, por mais especial e privilegiado que seja.']
   ]
 ];
+
+export const PRAZO_PADRAO_MESES = 24;
+
+const UNIDADES = ['zero', 'um', 'dois', 'três', 'quatro', 'cinco', 'seis', 'sete', 'oito', 'nove', 'dez', 'onze', 'doze', 'treze', 'quatorze', 'quinze', 'dezesseis', 'dezessete', 'dezoito', 'dezenove'];
+const DEZENAS = ['', '', 'vinte', 'trinta', 'quarenta', 'cinquenta', 'sessenta', 'setenta', 'oitenta', 'noventa'];
+const CENTENAS = ['', 'cento', 'duzentos', 'trezentos', 'quatrocentos', 'quinhentos', 'seiscentos', 'setecentos', 'oitocentos', 'novecentos'];
+
+/** Número inteiro de 0 a 999 por extenso (pt-BR). */
+export function extenso(n: number): string {
+  if (n < 20) return UNIDADES[n];
+  if (n < 100) return DEZENAS[Math.floor(n / 10)] + (n % 10 ? ' e ' + UNIDADES[n % 10] : '');
+  if (n === 100) return 'cem';
+  return CENTENAS[Math.floor(n / 100)] + (n % 100 ? ' e ' + extenso(n % 100) : '');
+}
+
+/** Normaliza o prazo salvo no pacote (pacotes antigos não têm o campo). */
+export function prazoMesesDe(valor: unknown): number {
+  const n = Math.floor(Number(valor));
+  return n >= 1 && n <= 999 ? n : PRAZO_PADRAO_MESES;
+}
+
+/** 24 → "24 meses"; 1 → "1 mês" */
+export function prazoCurto(meses: number) {
+  return meses + (meses === 1 ? ' mês' : ' meses');
+}
+
+/** 24 → "24 (vinte e quatro) meses" */
+export function prazoLongo(meses: number) {
+  return meses + ' (' + extenso(meses) + ') ' + (meses === 1 ? 'mês' : 'meses');
+}

@@ -35,7 +35,11 @@ export default function LoginPage() {
             className="border border-[#ddd] rounded-lg px-3 py-2.5 text-[15px] outline-none focus:border-brand"
           />
         </label>
-        {estado.erro && <div className="text-sm text-red-600">{estado.erro}</div>}
+        <label className="flex items-center gap-2 text-[14px] text-[#444] cursor-pointer select-none">
+          <input name="lembrar" type="checkbox" defaultChecked className="w-4 h-4 accent-brand cursor-pointer" />
+          Permanecer conectado
+        </label>
+                {estado.erro && <div className="text-sm text-red-600">{estado.erro}</div>}
         <button
           disabled={pendente}
           className="bg-brand text-ink font-bold rounded-lg py-3 text-[15px] disabled:opacity-60 cursor-pointer hover:bg-[#ffa133]"

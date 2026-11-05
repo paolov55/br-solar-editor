@@ -116,9 +116,17 @@ export function DocsWizard({ v }: { v: Vals }) {
         )}
         {v.isDocTermo && (
           <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
-            <h2 style={{ fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: "32px", fontWeight: "800", margin: "0", lineHeight: "1" }}>Textos do termo</h2>
-            <p style={{ margin: "-10px 0 0", color: "#666", fontSize: "15px" }}>Os três trechos variáveis do resumo da locação.</p>
+            <h2 style={{ fontFamily: "var(--font-barlow-condensed), sans-serif", fontSize: "32px", fontWeight: "800", margin: "0", lineHeight: "1" }}>{v.docTermoDentro ? "Textos do termo" : "Prazo da locação"}</h2>
+            <p style={{ margin: "-10px 0 0", color: "#666", fontSize: "15px" }}>{v.docTermoDentro ? "O prazo e os trechos variáveis do resumo da locação." : "O prazo inicial da locação usado no contrato."}</p>
             <div style={{ background: "#fff", border: "1px solid #E2E2E5", borderRadius: "13px", padding: "16px 18px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
+                Prazo da locação (meses)
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <input inputMode="numeric" value={v.dd.prazoMeses ?? ""} onChange={v.onPrazoMeses} placeholder="24" style={{ width: "110px", border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none" }} />
+                  <span style={{ fontWeight: "400", color: "#888" }}>Vale para o termo de adesão e o contrato.</span>
+                </div>
+              </label>
+              {v.docTermoDentro && (<>
               <label style={{ display: "flex", flexDirection: "column", gap: "6px", fontSize: "13px", color: "#666", fontWeight: "600" }}>
                 Valor Mensal
                 <textarea rows={2} value={v.dd.valorMensal ?? ""} onChange={v.onValorMensal} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none", resize: "vertical", lineHeight: "1.4" }}></textarea>
@@ -131,6 +139,7 @@ export function DocsWizard({ v }: { v: Vals }) {
                 Simplificadora
                 <textarea rows={3} value={v.dd.simplificadora ?? ""} onChange={v.onSimplificadora} style={{ border: "1px solid #DDD", borderRadius: "9px", padding: "11px 12px", fontSize: "15px", outline: "none", resize: "vertical", lineHeight: "1.4" }}></textarea>
               </label>
+              </>)}
             </div>
           </div>
         )}

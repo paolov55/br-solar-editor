@@ -1,15 +1,23 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { COOKIE_SESSAO, verificar } from "@/lib/auth/token";
+import { COOKIE_SESSAO, assinar, opcoesCookie, precisaRenovar, verificar } from "@/lib/auth/token";
 import { situacao, termosAceitos } from "@/lib/cobranca/status";
 
 // Portão de toda navegação: sessão → papel → termos de uso → mensalidade em dia.
 // (Server actions e páginas também revalidam a sessão; aqui é a primeira barreira.)
 export async function proxy(request: NextRequest) {
+  const sessao = await verificar(request.cookies.get(COOKIE_SESSAO)?.value);
+  const resposta = await portao(request, sessao);
+  // "permanecer conectado": estende a validade enquanto o sistema estiver em uso
+  if (sessao && precisaRenovar(sessao)) {
+    resposta.cookies.set(COOKIE_SESSAO, await assinar(sessao), opcoesCookie(true));
+  }
+  return resposta;
+}
+
+async function portao(request: NextRequest, sessao: Awaited<ReturnType<typeof verificar>>) {
   const { pathname } = request.nextUrl;
   const ir = (destino: string) => NextResponse.redirect(new URL(destino, request.url));
   const em = (prefixo: string) => pathname === prefixo || pathname.startsWith(prefixo + "/");
-
-  const sessao = await verificar(request.cookies.get(COOKIE_SESSAO)?.value);
 
   if (!sessao) return em("/login") ? NextResponse.next() : ir("/login");
   if (em("/login")) return ir("/");

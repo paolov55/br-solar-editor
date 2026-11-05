@@ -11,7 +11,7 @@ import {
   mascaraDoc, moedaBr, numeroBr, numeroDoc, refLabel, soDigitos,
 } from "@/lib/format";
 import { BANCO_PADRAO } from "@/lib/faturas/calc";
-import { BR_SOLAR_ASSIN, CONTRATO_PAGINAS, OUTORGADOS, TEXTOS_TERMO } from "@/lib/docs/textos";
+import { BR_SOLAR_ASSIN, CONTRATO_PAGINAS, OUTORGADOS, PRAZO_PADRAO_MESES, TEXTOS_TERMO, prazoCurto, prazoLongo, prazoMesesDe } from "@/lib/docs/textos";
 import {
   FIN_PADRAO, GARANTIAS_PADRAO, ITENS_PADRAO, ITENS_SERVICO_PADRAO, REND_PADRAO, TIPOS_ITEM,
 } from "@/lib/propostas/padroes";
@@ -83,6 +83,8 @@ function faturaSeed(cliente, mes, extras, pagamento) {
     banco: pag.banco, agencia: pag.agencia, conta: pag.conta, tipoConta: pag.tipoConta
   }, ex);
 }
+
+const PRAZO_CONTRATO_MARCA = '24 (vinte e quatro) meses';
 
 function bloco(def) {
   const tipo = def[0];
@@ -383,6 +385,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
       valorMensal: TEXTOS_TERMO.valorMensal,
       explicativo: TEXTOS_TERMO.explicativo,
       simplificadora: TEXTOS_TERMO.simplificadora,
+      prazoMeses: PRAZO_PADRAO_MESES,
       criada: Date.now(), alterada: Date.now()
     };
   }
@@ -444,6 +447,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         + (dd.endereco ? ', residente e domiciliado na ' + dd.endereco : '') + '.';
     }
     const assin = this.assinaturaDe(dd);
+    const prazo = prazoMesesDe(dd.prazoMeses);
     const p1 = [
       ['t', 'TERMO DE ADESÃO'],
       ['t', 'LOCAÇÃO DE CENTRAL DE GERAÇÃO FOTOVOLTAICA'],
@@ -452,10 +456,10 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
       ['pf', 'Contratante: ' + nome, posContratante, '', ''],
       ['pf', 'Contratada: BRENO RUFINO ENERGIA RENOVAVEL E PRODUCAO ARTISTICAS. ("Br Solar")', ', pessoa jurídica de direito privado, inscrita no CNPJ/ME nº 27.786.322/0001-64, com sede na Rua Mata Grande, 1111, Jaboatão dos Guararapes-PE, CEP 54340-002, legalmente representada por ', 'BRENO FERREIRA RUFINO', ', brasileiro, solteiro, empresário, portador da cédula de identidade RG nº 9.532.484 SDS/PE, inscrito no CPF sob o nº 703.036.134-24, com e-mail brsolarpe@gmail.com.'],
       ['s', '2. DO RESUMO DA LOCAÇÃO'],
-      ['pf', 'Objeto:', ' Aluguel de usina solar para geração de créditos de energia em favor do cliente para redução no custo mensal com energia elétrica pelo prazo de 24 meses.', '', ''],
+      ['pf', 'Objeto:', ' Aluguel de usina solar para geração de créditos de energia em favor do cliente para redução no custo mensal com energia elétrica pelo prazo de ' + prazoCurto(prazo) + '.', '', ''],
       ['pfc', 'Distribuidora de Energia:', ' Neoenergia Pernambuco', '', ''],
       ['pfc', 'Modalidade:', ' Geração Compartilhada, por meio de veículo de compensação.', '', ''],
-      ['pfc', 'Objetivo e Prazo:', ' Aluguel de usina solar para geração de créditos de energia em favor do cliente para redução no custo mensal com energia elétrica pelo prazo de 24 (vinte e quatro) meses.', '', ''],
+      ['pfc', 'Objetivo e Prazo:', ' Aluguel de usina solar para geração de créditos de energia em favor do cliente para redução no custo mensal com energia elétrica pelo prazo de ' + prazoLongo(prazo) + '.', '', ''],
       ['pfc', 'Valor Mensal:', ' ' + (dd.valorMensal || ''), '', ''],
       ['pfc', 'Explicativo:', ' ' + (dd.explicativo || ''), '', ''],
       ['pfc', 'Simplificadora:', ' ' + (dd.simplificadora || ''), '', ''],
@@ -479,8 +483,12 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
 
   paginasContrato(dd, dataStr) {
     const assin = this.assinaturaDe(dd);
+    const prazo = prazoLongo(prazoMesesDe(dd.prazoMeses));
     return CONTRATO_PAGINAS.map((defs, i) => {
-      let lista = defs.slice();
+      // cláusula 4: o prazo inicial da locação vem do pacote
+      let lista = defs.map(def => (typeof def[1] === 'string' && def[1].includes(PRAZO_CONTRATO_MARCA)
+        ? [def[0], def[1].replace(PRAZO_CONTRATO_MARCA, prazo)]
+        : def));
       if (i === CONTRATO_PAGINAS.length - 1) {
         lista = lista.concat([
           ['data', dataStr],
@@ -686,8 +694,9 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
     const nPaginas = docVisivel ? docVisivel.paginas.length : 0;
 
     const termoDentro = !!dd.incTermo;
+    const locacaoDentro = !!dd.incTermo || !!dd.incContrato;
     const passosDoc = [{ k: 'inicio', label: 'Início' }, { k: 'qualificacao', label: 'Qualificação' }]
-      .concat(termoDentro ? [{ k: 'termo', label: 'Termo' }] : [])
+      .concat(locacaoDentro ? [{ k: 'termo', label: termoDentro ? 'Termo' : 'Prazo' }] : [])
       .concat([{ k: 'revisar', label: 'Revisar' }]);
     const idxDoc = Math.max(0, passosDoc.findIndex(p => p.k === s.docStep));
 
@@ -1027,7 +1036,8 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
       })),
       isDocInicio: s.docStep === 'inicio',
       isDocQualif: s.docStep === 'qualificacao',
-      isDocTermo: s.docStep === 'termo' && termoDentro,
+      isDocTermo: s.docStep === 'termo' && locacaoDentro,
+      docTermoDentro: termoDentro,
       isDocRevisar: s.docStep === 'revisar',
       temDocProximo: idxDoc < passosDoc.length - 1,
       docProximo: () => this.setState({ docStep: passosDoc[Math.min(passosDoc.length - 1, idxDoc + 1)].k }),
@@ -1038,6 +1048,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         nacionalidade: dd.nacionalidade, estadoCivil: dd.estadoCivil,
         representante: dd.representante, repCpf: dd.repCpf, repCargo: dd.repCargo,
         valorMensal: dd.valorMensal, explicativo: dd.explicativo, simplificadora: dd.simplificadora,
+        prazoMeses: dd.prazoMeses ?? PRAZO_PADRAO_MESES,
         incProcuracao: dd.incProcuracao, incTermo: dd.incTermo, incContrato: dd.incContrato
       },
       docEhPJ: ehPJ,
@@ -1062,6 +1073,8 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
       onValorMensal: e => this.patchDoc('valorMensal', e.target.value),
       onExplicativo: e => this.patchDoc('explicativo', e.target.value),
       onSimplificadora: e => this.patchDoc('simplificadora', e.target.value),
+      // guarda o que foi digitado (pode ficar vazio enquanto edita); o documento usa prazoMesesDe()
+      onPrazoMeses: e => this.patchDoc('prazoMeses', e.target.value.replace(/\D/g, '').slice(0, 3)),
       temRepresentante: !!dd.representante,
       assinClienteBg: dd.assinaturaPor === 'cliente' ? '#fff' : 'transparent',
       assinClienteFg: dd.assinaturaPor === 'cliente' ? '#151515' : '#6B6B6B',
@@ -1089,6 +1102,7 @@ class EditorClass extends Component<{ modulo: Modulo; onHome: () => void }, any>
         { k: 'Tipo', v: ehPJ ? 'Pessoa jurídica' : 'Pessoa física' },
         { k: 'Representante', v: dd.representante ? dd.representante + (numeroDoc(dd.repCpf) ? ' (CPF ' + numeroDoc(dd.repCpf) + ')' : '') : '—' },
         { k: 'Assinatura', v: dd.assinaturaPor === 'representante' && dd.representante ? 'Do representante' : 'Do cliente' },
+        ...(locacaoDentro ? [{ k: 'Prazo da locação', v: prazoLongo(prazoMesesDe(dd.prazoMeses)) }] : []),
         { k: 'Documentos', v: docsGerados0.map(x => x.titulo).join(', ') || 'Nenhum' },
         { k: 'Data', v: dataExtenso(hoje()).replace('Recife, ', '') }
       ],
