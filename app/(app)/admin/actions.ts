@@ -29,10 +29,21 @@ export async function isentar(formData: FormData) {
   await alterar(idDe(formData), { status: "isento", pago_em: null, metodo: null, baixa_manual: false });
 }
 
-/** Desfaz baixa manual/isenção/pagamento lançado por engano. */
+/**
+ * Desfaz baixa manual/isenção/pagamento lançado por engano.
+ * Descarta também o pedido do Mercado Pago (`mp_preference_id`): senão a conciliação, que roda ao
+ * carregar a página, encontraria o pagamento aprovado e daria baixa de novo na hora.
+ */
 export async function reabrir(formData: FormData) {
   await exigirSessao("admin");
-  await alterar(idDe(formData), { status: "pendente", pago_em: null, metodo: null, mp_payment_id: null, baixa_manual: false });
+  await alterar(idDe(formData), {
+    status: "pendente",
+    pago_em: null,
+    metodo: null,
+    mp_payment_id: null,
+    mp_preference_id: null,
+    baixa_manual: false,
+  });
 }
 
 export async function alterarVencimento(formData: FormData) {
