@@ -5,7 +5,7 @@ import { calcularSituacao, garantirCobrancas, obterConfig } from "@/lib/cobranca
 import { conciliarPendentes } from "@/lib/mercadopago";
 import { db } from "@/lib/supabase/admin";
 import { brl, dataBr, refLabel } from "@/lib/format";
-import { alterarVencimento, darBaixa, isentar, reabrir, salvarConfig } from "./actions";
+import { alterarValor, alterarVencimento, darBaixa, isentar, reabrir, salvarConfig } from "./actions";
 
 type Busca = { [chave: string]: string | string[] | undefined };
 const um = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -17,6 +17,7 @@ const STATUS = {
 } as const;
 
 const ERROS: Record<string, string> = {
+  valor: "Informe um valor de mensalidade maior que zero.",
   dia: "O dia de vencimento deve estar entre 1 e 28.",
   lembrete: "A antecedência do lembrete deve estar entre 0 e 30 dias.",
   inicio: "Informe o mês de início.",
@@ -135,6 +136,11 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
                               <input type="date" name="vencimento" defaultValue={c.vencimento} required className={campo + " !py-0.5 !px-2 !text-[12.5px]"} />
                               <button className={botao}>Alterar</button>
                             </form>
+                            <form action={alterarValor} className="flex items-center gap-1">
+                              <input type="hidden" name="id" value={c.id} />
+                              <input type="number" name="valor" step="0.01" min="0.01" defaultValue={c.valor} required className={campo + " !py-0.5 !px-2 !text-[12.5px] w-24"} />
+                              <button className={botao}>Alterar valor</button>
+                            </form>
                           </>
                         ) : (
                           <form action={reabrir}>
@@ -158,6 +164,10 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
         {um(params.salvo) && <div className="text-sm text-green-700 font-semibold">Configuração salva.</div>}
         <form action={salvarConfig} className="flex flex-wrap items-end gap-4">
           <label className="flex flex-col gap-1.5 text-[13px] text-[#666] font-semibold">
+            Valor da mensalidade (R$)
+            <input type="number" name="valor" step="0.01" min="0.01" defaultValue={cfg.valor} required className={campo + " w-36"} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-[13px] text-[#666] font-semibold">
             Dia de vencimento (1–28)
             <input type="number" name="dia_vencimento" min={1} max={28} defaultValue={cfg.dia_vencimento} required className={campo + " w-36"} />
           </label>
@@ -174,7 +184,7 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
           </button>
         </form>
         <p className="m-0 text-[13px] text-[#777]">
-          Valor da mensalidade: {brl(cfg.valor)}. Mudar o dia recalcula só as cobranças pendentes que ainda não venceram.
+          Mudar o valor ou o dia atualiza só as cobranças pendentes que ainda não venceram; as já pagas e as atrasadas ficam como estão.
         </p>
       </section>
     </div>
