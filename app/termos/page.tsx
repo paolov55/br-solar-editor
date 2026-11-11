@@ -12,7 +12,7 @@ async function Conteudo() {
       className="w-full max-w-2xl bg-white border border-line rounded-2xl p-7 flex flex-col gap-4"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/assets/logo.png" alt="BR Solar" className="h-6 w-auto self-start invert" />
+      <img src="/assets/logo-fundo-claro.png" alt="BR Solar" className="h-10 w-auto self-start" />
       <div>
         <h1 className="font-cond text-3xl font-extrabold leading-none m-0">Termos de uso</h1>
         <p className="text-[13px] text-[#777] mt-1.5 mb-0">

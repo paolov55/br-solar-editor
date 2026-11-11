@@ -12,7 +12,7 @@ export default function LoginPage() {
     <main className="min-h-screen flex items-center justify-center px-6">
       <form action={acao} className="w-full max-w-sm bg-white border border-line rounded-2xl p-7 flex flex-col gap-4">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/assets/logo.png" alt="BR Solar" className="h-6 w-auto self-start invert" />
+        <img src="/assets/logo-fundo-claro.png" alt="BR Solar" className="h-10 w-auto self-start" />
         <h1 className="font-cond text-3xl font-extrabold leading-none">Entrar</h1>
         <label className="flex flex-col gap-1.5 text-[13px] text-[#666] font-semibold">
           Usuário
