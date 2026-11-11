@@ -5,6 +5,11 @@ export function hoje(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
 }
 
+/** Data "YYYY-MM-DD" no fuso de Brasília de um timestamp (ex.: `timestamptz` vindo do banco em UTC). */
+export function dataEmBrasilia(ts: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date(ts));
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Dia 1 do mês de uma data qualquer. */

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { exigirSessao } from "@/lib/auth/sessao";
-import { hoje } from "@/lib/cobranca/datas";
+import { dataEmBrasilia, hoje } from "@/lib/cobranca/datas";
 import { calcularSituacao, garantirCobrancas, obterConfig } from "@/lib/cobranca/status";
 import { conciliarPendentes } from "@/lib/mercadopago";
 import { db } from "@/lib/supabase/admin";
@@ -83,7 +83,7 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
           rotulo="Termos de uso"
           valor={aceite ? "Aceito" : "Pendente"}
           cor={aceite ? "text-green-700" : "text-[#c96a00]"}
-          detalhe={aceite ? `v${aceite.versao} · ${dataBr(String(aceite.aceito_em).slice(0, 10))} · IP ${aceite.ip ?? "—"}` : "Ainda não aceitou"}
+          detalhe={aceite ? `v${aceite.versao} · ${dataBr(dataEmBrasilia(String(aceite.aceito_em)))} · IP ${aceite.ip ?? "—"}` : "Ainda não aceitou"}
         />
       </div>
 
@@ -117,7 +117,7 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
                         {atrasada ? "Atrasada" : STATUS[c.status].texto}
                       </span>
                     </td>
-                    <td className="px-3 py-3">{c.pago_em ? dataBr(c.pago_em.slice(0, 10)) : "—"}</td>
+                    <td className="px-3 py-3">{c.pago_em ? dataBr(dataEmBrasilia(c.pago_em)) : "—"}</td>
                     <td className="px-3 py-3">{c.metodo ?? "—"}</td>
                     <td className="px-6 py-3">
                       <div className="flex flex-wrap items-center gap-1.5">

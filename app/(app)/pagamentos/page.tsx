@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { exigirSessao } from "@/lib/auth/sessao";
+import { dataEmBrasilia } from "@/lib/cobranca/datas";
 import { calcularSituacao, garantirCobrancas, obterConfig, type Cobranca } from "@/lib/cobranca/status";
 import { buscarPagamento, conciliarPendentes, registrarPagamento } from "@/lib/mercadopago";
 import { brl, dataBr, refLabel } from "@/lib/format";
@@ -157,7 +158,7 @@ async function Conteudo({ busca }: { busca: Promise<Busca> }) {
                         {STATUS[c.status].texto}
                       </span>
                     </td>
-                    <td className="px-3 py-3">{c.pago_em ? dataBr(c.pago_em.slice(0, 10)) : "—"}</td>
+                    <td className="px-3 py-3">{c.pago_em ? dataBr(dataEmBrasilia(c.pago_em)) : "—"}</td>
                     <td className="px-3 py-3">{c.baixa_manual ? "Baixa manual" : (c.metodo ?? "—")}</td>
                     <td className="px-6 py-3 text-right">
                       {c.status === "pendente" && <BotaoPagar c={c} rotulo="Pagar" />}
