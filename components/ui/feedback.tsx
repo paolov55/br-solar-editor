@@ -35,7 +35,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
         <div className="no-print fixed inset-0 z-50 bg-black/45 flex items-center justify-center p-6">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full flex flex-col gap-3">
             <h3 className="font-cond text-[26px] font-extrabold leading-none m-0">{m.titulo}</h3>
-            {m.texto && <p className="m-0 text-[15px] text-[#555] leading-snug">{m.texto}</p>}
+            {m.texto && <p className="m-0 text-[15px] text-[#555] leading-snug whitespace-pre-line">{m.texto}</p>}
             <div className="flex gap-2 justify-end mt-2">
               {m.acoes.map((a) => (
                 <button

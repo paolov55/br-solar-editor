@@ -20,6 +20,12 @@ const icone = {
       <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
     </>
   ),
+  rateio: (
+    <>
+      <path d="M12 3a9 9 0 1 0 9 9h-9z" />
+      <path d="M15 3.5A9 9 0 0 1 20.5 9H15z" />
+    </>
+  ),
 };
 
 const cards = [
@@ -47,6 +53,14 @@ const cards = [
     texto: "Sistema solar, carregador veicular ou serviço diverso, com seções ligáveis e desligáveis.",
     itens: ["Sistema solar", "Carregador", "Serviço"],
     rodape: <Contagem chave="brsolar.propostas.v1" campo="propostas" sufixo="salvas" />,
+  },
+  {
+    href: "/rateio",
+    titulo: "Rateio",
+    icone: icone.rateio,
+    texto: "Envie o PDF de alteração de rateio da Neoenergia, edite os campos aqui e baixe preenchido.",
+    itens: ["Percentual", "Prioridade", "Preview"],
+    rodape: "Edição no navegador",
   },
 ];
 
