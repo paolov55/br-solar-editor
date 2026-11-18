@@ -190,9 +190,7 @@ export default function RateioEditor() {
   const mudarCliente = (p: Partial<DadosRateio["cliente"]>) => mudar({ cliente: { ...dados.cliente, ...p } });
 
   const pct = dados.tipo === "percentual";
-  const soma = dados.linhas
-    .filter((l) => l.uc !== UC_GERADORA)
-    .reduce((a, l) => a + (lerNumero(l.valor) ?? 0), 0);
+  const soma = dados.linhas.reduce((a, l) => a + (lerNumero(l.valor) ?? 0), 0);
   const somaOk = Math.abs(soma - 100) < 0.001;
   const linhasUsadas = dados.linhas.reduce((n, l, i) => (l.conta || l.uc || l.valor ? i + 1 : n), 0);
   const visiveis = Math.min(MAX_LINHAS, Math.max(linhasUsadas + 1, 5));
@@ -276,10 +274,7 @@ export default function RateioEditor() {
                   <select
                     className={campo}
                     value={l.uc}
-                    onChange={(e) => {
-                      const uc = e.target.value as TipoUc;
-                      mudarLinha(i, { uc, ...(uc === UC_GERADORA ? { valor: "" } : {}) });
-                    }}
+                    onChange={(e) => mudarLinha(i, { uc: e.target.value as TipoUc })}
                     aria-label={`Unidade, linha ${i + 1}`}
                   >
                     <option value={UC_VAZIA}>—</option>
@@ -287,9 +282,8 @@ export default function RateioEditor() {
                     <option value={UC_COMPENSACAO}>{UC_COMPENSACAO}</option>
                   </select>
                   <input
-                    className={campo + " disabled:bg-[#F3F3F5]"}
+                    className={campo}
                     inputMode="decimal"
-                    disabled={l.uc === UC_GERADORA}
                     value={l.valor}
                     onChange={(e) => mudarLinha(i, { valor: e.target.value.replace(pct ? /[^\d.,]/g : /\D/g, "") })}
                     aria-label={`${pct ? "Percentual" : "Prioridade"}, linha ${i + 1}`}

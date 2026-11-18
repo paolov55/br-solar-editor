@@ -115,19 +115,19 @@ export function validar(d: DadosRateio): string[] {
   if (ativas.filter((l) => l.uc === UC_GERADORA).length !== 1)
     av.push('Deve haver exatamente uma linha "Principal (Geradora)".');
 
-  const comValor = ativas.filter((l) => l.uc !== UC_GERADORA);
+  // A geradora também pode receber percentual/prioridade; vazio conta como 0.
+  const comp = ativas.filter((l) => l.uc === UC_COMPENSACAO).map((l) => lerNumero(l.valor));
+  const todos = ativas.map((l) => lerNumero(l.valor)).filter((n): n is number => n !== null);
   if (d.tipo === "percentual") {
-    const nums = comValor.map((l) => lerNumero(l.valor));
-    if (nums.some((n) => n === null || n <= 0))
+    if (comp.some((n) => n === null || n <= 0))
       av.push("Informe o percentual de todas as unidades de compensação.");
-    const soma = nums.reduce<number>((a, n) => a + (n ?? 0), 0);
+    const soma = todos.reduce((a, n) => a + n, 0);
     if (Math.abs(soma - 100) > 0.001)
       av.push(`A soma dos percentuais é ${fmtPct(soma)}; deveria ser 100,00%.`);
   } else {
-    const nums = comValor.map((l) => lerNumero(l.valor));
-    if (nums.some((n) => n === null || !Number.isInteger(n) || n < 1))
+    if (comp.some((n) => n === null || !Number.isInteger(n) || n < 1))
       av.push("Informe a ordem de prioridade (1, 2, 3…) de todas as unidades de compensação.");
-    else if (new Set(nums).size !== nums.length) av.push("Há ordens de prioridade repetidas.");
+    else if (new Set(todos).size !== todos.length) av.push("Há ordens de prioridade repetidas.");
     if (!d.excedente.trim()) av.push("Informe a unidade consumidora que receberá o excedente.");
   }
 
@@ -256,7 +256,7 @@ export async function gerarPdf(bytesOriginais: Uint8Array, d: DadosRateio): Prom
     else dd.select(" ");
 
     const n = lerNumero(li.valor);
-    const temValor = li.uc !== UC_GERADORA && n !== null;
+    const temValor = n !== null;
     setar(l.pct, temValor && pct ? fmtPct(n!) : "", temValor && pct ? String(Math.round(n! * 1e4) / 1e6) : "");
     setar(l.pri, temValor && !pct ? String(Math.trunc(n!)) : "");
     flag(l.pct, pct ? VISIVEL : OCULTO);
